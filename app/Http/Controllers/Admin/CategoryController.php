@@ -5,19 +5,32 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = Category::orderBy('name')->paginate(10);
+        $categories = Category::orderBy('name')
+            ->paginate(10)
+            ->through(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'description' => $c->description,
+                'created_at' => optional($c->created_at)->format('d/m/Y H:i'),
+            ]);
 
-        return view('admin.categories.index', compact('categories'));
+        return Inertia::render('Admin/Categories/Index', [
+            'categories' => $categories,
+            'flash' => [
+                'success' => session('success'),
+            ],
+        ]);
     }
 
     public function create()
     {
-        return view('admin.categories.create');
+        return Inertia::render('Admin/Categories/Create');
     }
 
     public function store(Request $request)
@@ -29,19 +42,33 @@ class CategoryController extends Controller
 
         Category::create($validated);
 
-        return redirect()
-            ->route('categories.index')
+        // ⚠️ URLs directes (pas route()) pour éviter Ziggy
+        return redirect('/admin/categories')
             ->with('success', 'Catégorie créée avec succès.');
     }
 
+    // (Optionnel) on ne l’utilise pas forcément en React
     public function show(Category $category)
     {
-        return view('admin.categories.show', compact('category'));
+        return Inertia::render('Admin/Categories/Show', [
+            'category' => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'description' => $category->description,
+                'created_at' => optional($category->created_at)->format('d/m/Y H:i'),
+            ],
+        ]);
     }
 
     public function edit(Category $category)
     {
-        return view('admin.categories.edit', compact('category'));
+        return Inertia::render('Admin/Categories/Edit', [
+            'category' => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'description' => $category->description,
+            ],
+        ]);
     }
 
     public function update(Request $request, Category $category)
@@ -53,8 +80,7 @@ class CategoryController extends Controller
 
         $category->update($validated);
 
-        return redirect()
-            ->route('categories.index')
+        return redirect('/admin/categories')
             ->with('success', 'Catégorie mise à jour avec succès.');
     }
 
@@ -62,8 +88,7 @@ class CategoryController extends Controller
     {
         $category->delete();
 
-        return redirect()
-            ->route('categories.index')
+        return redirect('/admin/categories')
             ->with('success', 'Catégorie supprimée avec succès.');
     }
 }

@@ -3,10 +3,34 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Order extends Model
 {
-    protected $fillable = ['user_id', 'total', 'status'];
+    use HasFactory;
+
+    protected $fillable = [
+        // Base commande
+        'user_id',
+        'total',
+        'status',
+
+        // Livraison
+        'shipping_name',
+        'shipping_phone',
+        'shipping_city',
+        'shipping_address',
+        'shipping_note',
+
+        // Paiement
+        'payment_method',
+        'payment_status',
+        'payment_ref',
+    ];
+
+    /* =======================
+     | Relations
+     ======================= */
 
     public function items()
     {

@@ -7,19 +7,41 @@ use App\Models\Product;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
 
 class ProductController extends Controller
 {
     public function index()
     {
-        $products = Product::with('category')->latest()->paginate(10);
-        return view('admin.products.index', compact('products'));
+        $products = Product::with('category')
+            ->latest()
+            ->paginate(10)
+            ->through(fn ($p) => [
+                'id' => $p->id,
+                'name' => $p->name,
+                'price' => (float) $p->price,
+                'stock' => (int) ($p->stock ?? 0),
+                'is_active' => (bool) $p->is_active,
+                'image' => $p->image ? asset('storage/' . $p->image) : null,
+                'category' => $p->category ? [
+                    'id' => $p->category->id,
+                    'name' => $p->category->name,
+                ] : null,
+                'created_at' => optional($p->created_at)->format('d/m/Y H:i'),
+            ]);
+
+        return Inertia::render('Admin/Products/Index', [
+            'products' => $products,
+            'flash' => ['success' => session('success')],
+        ]);
     }
 
     public function create()
     {
-        $categories = Category::orderBy('name')->get();
-        return view('admin.products.create', compact('categories'));
+        $categories = Category::orderBy('name')->get(['id','name']);
+        return Inertia::render('Admin/Products/Create', [
+            'categories' => $categories,
+        ]);
     }
 
     public function store(Request $request)
@@ -34,25 +56,34 @@ class ProductController extends Controller
             'image'       => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
-        // checkbox -> boolean
         $validated['is_active'] = $request->has('is_active');
 
-        // Upload image
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
         Product::create($validated);
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Produit créé avec succès.');
+        return redirect()->route('admin.products.index')->with('success', 'Produit créé avec succès.');
     }
 
     public function edit(Product $product)
     {
-        $categories = Category::orderBy('name')->get();
-        return view('admin.products.edit', compact('product', 'categories'));
+        $categories = Category::orderBy('name')->get(['id','name']);
+
+        return Inertia::render('Admin/Products/Edit', [
+            'product' => [
+                'id' => $product->id,
+                'category_id' => $product->category_id,
+                'name' => $product->name,
+                'description' => $product->description,
+                'price' => (float) $product->price,
+                'stock' => (int) ($product->stock ?? 0),
+                'is_active' => (bool) $product->is_active,
+                'image' => $product->image ? asset('storage/' . $product->image) : null,
+            ],
+            'categories' => $categories,
+        ]);
     }
 
     public function update(Request $request, Product $product)
@@ -69,21 +100,16 @@ class ProductController extends Controller
 
         $validated['is_active'] = $request->has('is_active');
 
-        // Remplacer image si nouvelle upload
         if ($request->hasFile('image')) {
-            // supprimer ancienne
             if ($product->image && Storage::disk('public')->exists($product->image)) {
                 Storage::disk('public')->delete($product->image);
             }
-
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
 
         $product->update($validated);
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Produit mis à jour avec succès.');
+        return redirect()->route('admin.products.index')->with('success', 'Produit mis à jour avec succès.');
     }
 
     public function destroy(Product $product)
@@ -94,8 +120,6 @@ class ProductController extends Controller
 
         $product->delete();
 
-        return redirect()
-            ->route('products.index')
-            ->with('success', 'Produit supprimé avec succès.');
+        return redirect()->route('admin.products.index')->with('success', 'Produit supprimé avec succès.');
     }
 }

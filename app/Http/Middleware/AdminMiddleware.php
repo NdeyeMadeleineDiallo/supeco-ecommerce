@@ -4,15 +4,14 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class AdminMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        $user = $request->user(); // null si pas connecté
-
-        if (!$user || !$user->is_admin) {
-            abort(403, "Accès réservé à l’administrateur");
+        if (!Auth::check() || (int) Auth::user()->is_admin !== 1) {
+            abort(403, "Accès réservé à l'administrateur");
         }
 
         return $next($request);
